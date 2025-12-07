@@ -3,7 +3,8 @@ const SPREADSHEET_ID = '1iwP323oeDeCseDJpslj07ulrQT77lSF6';
 const SHEET_ID = '228151703';
 
 // Google Sheets APIのエンドポイント（公開スプレッドシート用）
-const API_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_ID}`;
+const API_URL = `https://docs.google.com/spreadsheets/d/${1iwP323oeDeCseDJpslj07ulrQT77lSF6}/export?format=csv&gid=${228151703}`;
+// const API_URL = `https://docs.google.com/spreadsheets/d/1iwP323oeDeCseDJpslj07ulrQT77lSF6/edit?usp=sharing&ouid=107438013508865255994&rtpof=true&sd=true`;
 
 /**
  * プロジェクトデータを読み込む

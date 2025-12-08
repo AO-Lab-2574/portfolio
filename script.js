@@ -2,10 +2,10 @@
 const ORIGINAL_SPREADSHEET_ID = '1iwP323oeDeCseDJpslj07ulrQT77lSF6';
 
 // スプレッドシートの公開ID（「ウェブに公開」で取得したID）
-// 公開後に取得したIDに置き換えてください
 const PUBLIC_SPREADSHEET_ID = '2PACX-1vSp9rwwRm7ecv2VH75gmK5A2WMEjt92Mg4bUQj94_4jJa1pIottYecfSZWhww6Gzw';
 
-const SHEET_ID = '228151703'; // 技術者履歴シートのID
+// 新しいシンプルなシートのID
+const SHEET_ID = '1200337119';
 
 // 表示する項番の範囲を指定（nullの場合は全て表示）
 const DISPLAY_START = null; // 開始項番（例: 1）
@@ -70,24 +70,21 @@ function parseCSV(csv) {
         return [];
     }
 
-    // ヘッダー行を探す（「作業期間」を含む行）
+    // ヘッダー行を探す（「項番」を含む行）
     let headerIndex = -1;
     let headers = [];
 
-    for (let i = 0; i < Math.min(lines.length, 30); i++) {
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
         const testHeaders = parseCSVLine(lines[i]);
 
         // デバッグ: 各行の最初の10列を表示
-        if (i < 25) {
-            console.log(`${i}行目:`, testHeaders.slice(0, 10).map(h => h ? h.substring(0, 20) : '(空)'));
-        }
+        console.log(`${i}行目:`, testHeaders.slice(0, 10).map(h => h ? h.substring(0, 20) : '(空)'));
 
-        // 「作業期間」を含む行をヘッダーとみなす
-        const hasWorkPeriod = testHeaders.some(h => h && h.includes('作業期間'));
-        const hasIndustry = testHeaders.some(h => h && h.includes('業種'));
-        const hasProjectName = testHeaders.some(h => h && (h.includes('プロジェクト名') || h.includes('案件名')));
+        // 「項番」を含む行をヘッダーとみなす
+        const hasKouban = testHeaders.some(h => h && (h.includes('項番') || h === 'No' || h === 'NO'));
+        const hasAnkenMei = testHeaders.some(h => h && (h.includes('案件名') || h.includes('プロジェクト')));
 
-        if (hasWorkPeriod || (hasIndustry && hasProjectName)) {
+        if (hasKouban || hasAnkenMei) {
             headerIndex = i;
             headers = testHeaders;
             console.log(`✓ ヘッダー行を発見: ${i}行目（Excel行: ${i + 1}）`, headers.filter(h => h));
@@ -97,7 +94,7 @@ function parseCSV(csv) {
 
     if (headerIndex === -1) {
         console.error('❌ ヘッダー行が見つかりませんでした');
-        console.log('💡 先頭30行を確認してください');
+        console.log('💡 先頭10行を確認してください');
         return [];
     }
 
@@ -121,19 +118,18 @@ function parseCSV(csv) {
             }
         });
 
-        // プロジェクト名、作業内容、業種のいずれかがある行を追加
-        const projectName = project['プロジェクト名'] || project['案件名'] || project['PJ名'] || '';
-        const workContent = project['作業内容'] || '';
-        const industry = project['業種・業態'] || project['業種'] || '';
-        const period = project['作業期間'] || project['期間'] || '';
+        // プロジェクト名、案件名のいずれかがある行を追加
+        const kouban = project['項番'] || project['No'] || project['NO'] || '';
+        const ankenMei = project['案件名'] || project['案件名称'] || project['プロジェクト名'] || '';
+        const period = project['案件期間'] || project['期間'] || project['作業期間'] || '';
 
-        // データがある行のみ追加
-        if (projectName.trim() || workContent.trim() || (industry.trim() && period.trim())) {
+        // 項番または案件名がある行のみ追加
+        if ((kouban && kouban.trim()) || (ankenMei && ankenMei.trim())) {
             projectCount++;
             project['_行番号'] = i + 1; // Excel行番号
             project['_データ番号'] = projectCount;
             projects.push(project);
-            console.log(`✓ プロジェクト${projectCount}を追加 (Excel ${i + 1}行目):`, projectName || '(名前なし)', '業種:', industry.substring(0, 20));
+            console.log(`✓ プロジェクト${projectCount}を追加 (Excel ${i + 1}行目): 項番=${kouban}, 案件名=${ankenMei.substring(0, 30)}`);
         }
     }
 
@@ -181,16 +177,28 @@ function filterByKouban(projects) {
     }
 
     return projects.filter((project, index) => {
-        // データ番号で絞り込み
+        // 項番で絞り込み
+        const koubanStr = project['項番'] || project['No'] || project['NO'] || '';
         const dataNumber = project['_データ番号'] || (index + 1);
 
-        const matchStart = DISPLAY_START === null || dataNumber >= DISPLAY_START;
-        const matchEnd = DISPLAY_END === null || dataNumber <= DISPLAY_END;
+        if (!koubanStr) {
+            // 項番がない場合はデータ番号で判定
+            const matchStart = DISPLAY_START === null || dataNumber >= DISPLAY_START;
+            const matchEnd = DISPLAY_END === null || dataNumber <= DISPLAY_END;
+            return matchStart && matchEnd;
+        }
+
+        const kouban = parseInt(koubanStr);
+
+        if (isNaN(kouban)) return true;
+
+        const matchStart = DISPLAY_START === null || kouban >= DISPLAY_START;
+        const matchEnd = DISPLAY_END === null || kouban <= DISPLAY_END;
 
         const matched = matchStart && matchEnd;
 
         if (DISPLAY_START !== null || DISPLAY_END !== null) {
-            console.log(`データ${dataNumber}: ${matched ? '✓表示' : '×非表示'}`);
+            console.log(`項番${kouban}: ${matched ? '✓表示' : '×非表示'}`);
         }
 
         return matched;
@@ -213,40 +221,36 @@ function displayProjects(projects) {
         const projectDiv = document.createElement('div');
         projectDiv.className = 'project';
 
-        // 各フィールドを取得（複数の列名パターンに対応）
-        const projectName = project['プロジェクト名'] || project['案件名'] || project['PJ名'] || '案件名なし';
-        const period = project['作業期間'] || project['期間'] || '期間未定';
-        const industry = project['業種・業態'] || project['業種'] || '-';
+        // 各フィールドを取得
+        const kouban = project['項番'] || project['No'] || project['NO'] || (index + 1);
+        const ankenMei = project['案件名'] || project['案件名称'] || project['プロジェクト名'] || '案件名なし';
+        const period = project['案件期間'] || project['期間'] || project['作業期間'] || '期間未定';
         const memberCount = project['人数'] || '-';
-        const role = project['担当分野PM／PL ESE／SE PG'] || project['担当分野'] || project['役割'] || '-';
+        const gyoushu = project['業種'] || project['業種・業態'] || '-';
+        const yakuwari = project['役割'] || project['担当分野'] || '-';
 
-        // 使用技術（複数の列をまとめる）
-        const techFields = [
-            project['開発言語・ツール・データベース'] || '',
-            project['機種OS名'] || '',
-            project['使用技術'] || ''
-        ].filter(t => t.trim());
-
-        const techArray = techFields.join(',')
-            .split(/[、,，\n]/)
+        // 使用技術を取得
+        const gijutsu = project['使用技術'] || project['開発言語・ツール・データベース/フレームワーク'] || project['技術'] || '';
+        const techArray = gijutsu
+            .split(/[\n,、，]/)
             .map(t => t.trim())
             .filter(t => t && t !== '-');
 
-        // 作業内容
-        const workContent = project['作業内容'] || '';
-        const workItems = workContent
+        // 作業内容を取得
+        const sagyou = project['作業内容'] || project['担当作業/フェーズ'] || '';
+        const workItems = sagyou
             .split(/\n/)
             .map(item => item.trim())
             .filter(item => item && item !== '-');
 
         projectDiv.innerHTML = `
-            <h3>${escapeHtml(projectName)}</h3>
+            <h3>${escapeHtml(ankenMei)}</h3>
             <div class="project-meta">
-                <span>📋 No: ${project['_データ番号'] || (index + 1)}</span>
+                <span>📋 項番: ${escapeHtml(kouban)}</span>
                 <span>📅 ${escapeHtml(period)}</span>
                 ${memberCount !== '-' ? `<span>👥 ${escapeHtml(memberCount)}人</span>` : ''}
-                <span>🏢 ${escapeHtml(industry)}</span>
-                ${role !== '-' ? `<span>💼 ${escapeHtml(role)}</span>` : ''}
+                <span>🏢 ${escapeHtml(gyoushu)}</span>
+                ${yakuwari !== '-' ? `<span>💼 ${escapeHtml(yakuwari)}</span>` : ''}
             </div>
 
             ${techArray.length > 0 ? `

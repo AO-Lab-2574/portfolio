@@ -51,7 +51,7 @@ async function loadProjects() {
             <p style="color: #666; font-size: 14px; margin-top: 10px;">
                 <strong>以下を確認してください：</strong><br>
                 1. スプレッドシートが「ウェブに公開」されているか<br>
-                2. 正しいシート（技術者履歴）を読み込んでいるか<br>
+                2. 正しいシート（portfolio用）を読み込んでいるか<br>
                 3. ブラウザのコンソール（F12）でエラー詳細を確認<br><br>
                 エラー詳細: ${error.message}
             </p>

@@ -77,10 +77,13 @@ function parseCSV(csv) {
             project[header] = values[index] || '';
         });
 
-        // 項番が存在する行のみ追加
-        if (project['項番'] && project['項番'].trim()) {
+        // データが存在する行のみ追加（項番または番号列をチェック）
+        const kouban = project['項番'] || project['番号'] || project['No'] || project['NO'];
+        const projectName = project['案件名'] || project['プロジェクト名'] || project['PJ名'];
+
+        if ((kouban && kouban.trim()) || (projectName && projectName.trim())) {
             projects.push(project);
-            console.log(`項番 ${project['項番']} を追加:`, project['案件名']);
+            console.log(`プロジェクトを追加 - 項番: ${kouban}, 案件名: ${projectName}`);
         }
     }
 
@@ -127,7 +130,8 @@ function filterByKouban(projects) {
     }
 
     return projects.filter(project => {
-        const kouban = parseInt(project['項番']);
+        const koubanStr = project['項番'] || project['番号'] || project['No'] || project['NO'] || '';
+        const kouban = parseInt(koubanStr);
 
         if (isNaN(kouban)) return false;
 
@@ -154,8 +158,26 @@ function displayProjects(projects) {
         const projectDiv = document.createElement('div');
         projectDiv.className = 'project';
 
+        // 項番を取得（複数の列名に対応）
+        const kouban = project['項番'] || project['番号'] || project['No'] || project['NO'] || '-';
+
+        // 案件名を取得（複数の列名に対応）
+        const projectName = project['案件名'] || project['プロジェクト名'] || project['PJ名'] || '案件名なし';
+
+        // 期間を取得
+        const period = project['期間'] || project['作業期間'] || '期間未定';
+
+        // 人数を取得
+        const memberCount = project['人数'] || '-';
+
+        // 業種を取得
+        const industry = project['業種'] || project['業種・業態'] || '-';
+
+        // 役割を取得
+        const role = project['役割'] || project['担当分野'] || project['担当分野PM／PL ESE／SE PG'] || '-';
+
         // 使用技術を配列に変換
-        const techStack = project['使用技術'] || project['開発言語・ツール・データベース'] || '';
+        const techStack = project['使用技術'] || project['開発言語・ツール・データベース'] || project['機種OS名'] || '';
         const techArray = techStack
             ? techStack.split(/[、,，\n]/).map(t => t.trim()).filter(t => t)
             : [];
@@ -163,17 +185,17 @@ function displayProjects(projects) {
         // 作業内容を配列に変換
         const workContent = project['作業内容'] || '';
         const workItems = workContent
-            ? workContent.split(/\n/).map(item => item.trim()).filter(item => item)
+            ? workContent.split(/\n/).map(item => item.trim()).filter(item => item && item !== '-')
             : [];
 
         projectDiv.innerHTML = `
-            <h3>${escapeHtml(project['案件名'] || project['プロジェクト名']) || '案件名なし'}</h3>
+            <h3>${escapeHtml(projectName)}</h3>
             <div class="project-meta">
-                <span>📋 項番: ${escapeHtml(project['項番'])}</span>
-                <span>📅 ${escapeHtml(project['期間'] || project['作業期間']) || '期間未定'}</span>
-                <span>👥 ${escapeHtml(project['人数']) || '-'}人</span>
-                <span>🏢 ${escapeHtml(project['業種'] || project['業種・業態']) || '-'}</span>
-                <span>💼 ${escapeHtml(project['役割'] || project['担当分野']) || '-'}</span>
+                ${kouban !== '-' ? `<span>📋 項番: ${escapeHtml(kouban)}</span>` : ''}
+                <span>📅 ${escapeHtml(period)}</span>
+                <span>👥 ${escapeHtml(memberCount)}人</span>
+                <span>🏢 ${escapeHtml(industry)}</span>
+                <span>💼 ${escapeHtml(role)}</span>
             </div>
 
             ${techArray.length > 0 ? `

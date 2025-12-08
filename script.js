@@ -237,8 +237,15 @@ function displayProjects(projects) {
             .filter(t => t && t !== '-');
 
         // 作業内容を取得
-        const sagyou = project['作業内容'] || project['担当作業/フェーズ'] || '';
+        const sagyou = project['作業内容'] || '';
         const workItems = sagyou
+            .split(/\n/)
+            .map(item => item.trim())
+            .filter(item => item && item !== '-');
+
+        // 担当作業/フェーズ を取得
+        const phase = project['担当作業/フェーズ'] || project['担当フェーズ'] || project['フェーズ'] || '';
+        const phaseItems = phase
             .split(/\n/)
             .map(item => item.trim())
             .filter(item => item && item !== '-');
@@ -264,6 +271,13 @@ function displayProjects(projects) {
                 <h4 style="color: #667eea; margin-top: 20px; margin-bottom: 10px;">作業内容</h4>
                 <ul>
                     ${workItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+                </ul>
+            ` : ''}
+
+            ${phaseItems.length > 0 ? `
+                <h4 style="color: #667eea; margin-top: 20px; margin-bottom: 10px;">担当作業 / フェーズ</h4>
+                <ul>
+                    ${phaseItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                 </ul>
             ` : ''}
         `;

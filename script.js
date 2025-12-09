@@ -63,9 +63,10 @@ async function loadProjects() {
  * CSVテキストをパースしてオブジェクト配列に変換
  */
 function parseCSV(csv) {
-    const lines = csv.split('\n').filter(line => line.trim());
+    // CSVを行単位でパース（ダブルクォート内の改行を考慮）
+    const rows = parseCSVRows(csv);
 
-    if (lines.length === 0) {
+    if (rows.length === 0) {
         console.error('CSVデータが空です');
         return [];
     }
@@ -74,8 +75,8 @@ function parseCSV(csv) {
     let headerIndex = -1;
     let headers = [];
 
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
-        const testHeaders = parseCSVLine(lines[i]);
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const testHeaders = rows[i];
 
         // デバッグ: 各行の最初の10列を表示
         console.log(`${i}行目:`, testHeaders.slice(0, 10).map(h => h ? h.substring(0, 20) : '(空)'));
@@ -102,8 +103,8 @@ function parseCSV(csv) {
 
     // ヘッダーの次の行からデータを読み込む
     let projectCount = 0;
-    for (let i = headerIndex + 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i]);
+    for (let i = headerIndex + 1; i < rows.length; i++) {
+        const values = rows[i];
 
         // 空行をスキップ
         if (values.every(v => !v || !v.trim())) {
@@ -121,7 +122,6 @@ function parseCSV(csv) {
         // プロジェクト名、案件名のいずれかがある行を追加
         const kouban = project['項番'] || project['No'] || project['NO'] || '';
         const ankenMei = project['案件名'] || project['案件名称'] || project['プロジェクト名'] || '';
-        const period = project['案件期間'] || project['期間'] || project['作業期間'] || '';
 
         // 項番または案件名がある行のみ追加
         if ((kouban && kouban.trim()) || (ankenMei && ankenMei.trim())) {
@@ -138,34 +138,62 @@ function parseCSV(csv) {
 }
 
 /**
- * CSV行をパース（カンマ区切りだが、ダブルクォート内のカンマは無視）
+ * CSVを行単位でパース（ダブルクォート内の改行を保持）
  */
-function parseCSVLine(line) {
-    const result = [];
-    let current = '';
+function parseCSVRows(csv) {
+    const rows = [];
+    let currentRow = [];
+    let currentCell = '';
     let inQuotes = false;
 
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        const nextChar = line[i + 1];
+    for (let i = 0; i < csv.length; i++) {
+        const char = csv[i];
+        const nextChar = csv[i + 1];
 
         if (char === '"') {
             if (inQuotes && nextChar === '"') {
-                current += '"';
+                // エスケープされたダブルクォート
+                currentCell += '"';
                 i++;
             } else {
+                // クォートの開始/終了
                 inQuotes = !inQuotes;
             }
         } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
+            // セルの区切り
+            currentRow.push(currentCell.trim());
+            currentCell = '';
+        } else if (char === '\n' && !inQuotes) {
+            // 行の区切り（クォート外の改行のみ）
+            currentRow.push(currentCell.trim());
+            if (currentRow.some(cell => cell !== '')) {
+                rows.push(currentRow);
+            }
+            currentRow = [];
+            currentCell = '';
+        } else if (char === '\r' && nextChar === '\n' && !inQuotes) {
+            // Windows形式の改行（CRLF）
+            currentRow.push(currentCell.trim());
+            if (currentRow.some(cell => cell !== '')) {
+                rows.push(currentRow);
+            }
+            currentRow = [];
+            currentCell = '';
+            i++; // \nをスキップ
         } else {
-            current += char;
+            currentCell += char;
         }
     }
 
-    result.push(current.trim());
-    return result;
+    // 最後のセルと行を追加
+    if (currentCell || currentRow.length > 0) {
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(cell => cell !== '')) {
+            rows.push(currentRow);
+        }
+    }
+
+    return rows;
 }
 
 /**
